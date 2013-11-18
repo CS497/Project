@@ -1,0 +1,11 @@
+﻿<Window x:Class="CS497.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MainWindow" Height="350" Width="525">
+    <Grid>
+        <TextBox x:Name="tbQuery" HorizontalAlignment="Left" Height="23" Margin="64,41,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="246"/>
+        <TextBlock x:Name="tbResults" HorizontalAlignment="Left" Height="168" Margin="37,100,0,0" TextWrapping="Wrap" Text="TextBlock" VerticalAlignment="Top" Width="423"/>
+        <Button x:Name="btnSearch" Content="Search" HorizontalAlignment="Left" Height="23" Margin="337,41,0,0" VerticalAlignment="Top" Width="101" Click="btnSearch_Click"/>
+
+    </Grid>
+</Window>
