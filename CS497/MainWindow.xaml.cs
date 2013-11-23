@@ -1,27 +1,21 @@
 ﻿using HtmlAgilityPack;
 using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System;
+using System.Threading.Tasks;
 
 namespace CS497
 {
-
+    public class Globals
+    {
+        public static HashSet<string> Professors = new HashSet<string>();
+    }
     /// <summary>
     /// An Object that contains the url that points to the professors bio and the bio with stopwords removed
     /// </summary>
@@ -49,6 +43,28 @@ namespace CS497
             InitializeComponent();
             //LoadDataFromWeb();
             LoadDataFromFile();
+            foreach (string professor in Corpus.Keys)
+            {
+                Globals.Professors.Add(professor);
+            }
+            printStats();
+
+        }
+
+        private async void printStats()
+        {
+            foreach (var row in QueryTester.Queries)
+            {
+                // prevent api lockout with 403
+                Thread.Sleep(5000);
+                var resultKVP = await rankResults(row.Key);
+
+                List<string> predictedResults = resultKVP.Select(x => x.Key).ToList();
+                QueryTester tester = new QueryTester(predictedResults, row.Value);
+                Console.WriteLine("Query: {0}", row.Key);
+                Console.WriteLine("Precision: {0}", tester.Precision());
+                Console.WriteLine("Recall: {0}", tester.Recall());
+            }
         }
 
         public void LoadDataFromFile()
@@ -62,14 +78,14 @@ namespace CS497
             int skipCount = 0;
             int total = 0;
             Corpus = new Dictionary<string, Corpus>();
-            HttpClient client = new HttpClient();            
-            HtmlDocument doc = new HtmlDocument();                        
+            HttpClient client = new HttpClient();
+            HtmlDocument doc = new HtmlDocument();
             Corpus data;
 
             // Retrieve and Load Html Document
             string response = await client.GetStringAsync(this.baseUrl + "/people/faculty/index.html");
             doc.LoadHtml(response);
-            
+
             // Loop through each table row with a professor and his information
             foreach (var node in doc.DocumentNode.SelectNodes("/html/body/div[2]/div/div[2]/div[1]/table/tr"))
             {
@@ -96,7 +112,7 @@ namespace CS497
                 var rep2 = await client.GetStringAsync(this.baseUrl + value.url);
                 doc.LoadHtml(rep2);
                 var node = doc.DocumentNode.SelectNodes("/html/body/div[2]/div/div[2]/div[1]")[0];
-                
+
                 // Get the text without HTML and remove new lines
                 string text = node.InnerText;
                 text = text.Replace("\n", " ");
@@ -107,7 +123,7 @@ namespace CS497
                 // Remove stopwords
                 foreach (var word in stopwords)
                 {
-                    text = text.Replace(" " + word + " ", " ");                        
+                    text = text.Replace(" " + word + " ", " ");
                 }
                 text = await Stemmer.stemText(text);
                 // Save bio text to the professors data
@@ -116,7 +132,7 @@ namespace CS497
                 // The API seems to rate limit us (By 403 Errors) so I put a sleep in which seems to have fixed the issue
                 Thread.Sleep(2000);
             }
-            
+
             //MessageBox.Show("Skipped " + skipCount + "/" + total);  // Skip Count
             // Write the json to a file so we don't have to keep redownloading it
             string json = JsonConvert.SerializeObject(Corpus);
@@ -126,15 +142,10 @@ namespace CS497
             writer.Dispose();
         }
 
-        private async void btnSearch_Click(object sender, RoutedEventArgs e)
+        private async Task<IOrderedEnumerable<KeyValuePair<string, double>>> rankResults(string query)
         {
+            query = await Stemmer.stemText(query);
             Dictionary<string, double> rank = new Dictionary<string, double>();
-            this.tbResults.Text = "";
-
-            // Get Query and Stem it so it matches the Corpus format
-            string query = tbQuery.Text;
-            query = await Stemmer.stemText(query);            
-
             // Compute document ranks
             foreach (var key in Corpus.Keys)
             {
@@ -142,10 +153,21 @@ namespace CS497
                 double r = Okapi.ComputeWeight(Corpus, key, query, freq, 0);
                 rank.Add(key, r);
             }
-            
+            return rank.Where(v => v.Value != 0).OrderByDescending(v => v.Value);
+        }
+
+        private async void btnSearch_Click(object sender, RoutedEventArgs e)
+        {
+            this.tbResults.Text = "";
+
+            // Get Query and Stem it so it matches the Corpus format
+            string query = tbQuery.Text;
+
+            var rank = await rankResults(query);
+
             // Order and print results to screen
             int count = 1;
-            foreach (var value in rank.Where( v => v.Value != 0).OrderByDescending(v => v.Value))
+            foreach (var value in rank)
             {
                 this.tbResults.Text += string.Format("{0}. {1}\t{2}\n", count++, value.Key, value.Value);
             }
