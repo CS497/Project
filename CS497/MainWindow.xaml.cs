@@ -64,6 +64,10 @@ namespace CS497
                 Console.WriteLine("Query: {0}", row.Key);
                 Console.WriteLine("Precision: {0}", tester.Precision());
                 Console.WriteLine("Recall: {0}", tester.Recall());
+                Console.WriteLine("a: {0}", tester.a);
+                Console.WriteLine("b: {0}", tester.b);
+                Console.WriteLine("c: {0}", tester.c);
+                Console.WriteLine("d: {0}", tester.d);
             }
         }
 
